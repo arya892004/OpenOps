@@ -1,8 +1,8 @@
 ---
 title: OpenOps Incident Commander
 emoji: 🚨
-colorFrom: red
-colorTo: orange
+colorFrom: blue
+colorTo: purple
 sdk: docker
 pinned: false
 ---
