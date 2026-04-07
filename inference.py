@@ -1,6 +1,7 @@
 """
 OpenOps FINAL Agent - Optimized Playbooks with Required Logging
-Combines intelligent incident detection with hackathon-compliant format
+This agent implements optimized playbooks for each task, with smart incident type detection.
+It includes the required logging for start, each step, and end of the episode.
 """
 
 import os
@@ -13,7 +14,7 @@ from graders import get_grader
 
 
 # =========================================================
-# ENV VARIABLES (Required by hackathon)
+# ENV VARIABLES 
 # =========================================================
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
@@ -54,7 +55,7 @@ def log_end(task_id: int, total_reward: float, final_score: float, resolved: boo
 
 
 # =========================================================
-# YOUR INCIDENT DETECTION (THE SECRET SAUCE 🔥)
+# INCIDENT DETECTION 
 # =========================================================
 def detect_incident_type(observation) -> str:
     """Smart detection based on alerts, logs, and service status."""
@@ -85,7 +86,7 @@ def detect_incident_type(observation) -> str:
 
 
 # =========================================================
-# YOUR OPTIMIZED PLAYBOOKS (WINNING STRATEGY)
+# OPTIMIZED PLAYBOOKS
 # =========================================================
 PLAYBOOKS = {
     # Task 1: API crash
@@ -143,7 +144,7 @@ def run_task(task_id: int, max_steps: int = 30) -> dict:
     env = MyEnvEnvironment()
     obs = env.reset(task_id=task_id)
     
-    # YOUR SECRET SAUCE: Detect incident type
+    # Detect incident type
     incident_type = detect_incident_type(obs)
     
     # Get optimal playbook

@@ -10,71 +10,62 @@
 # - Standalone environments (with openenv from PyPI/Git)
 # The build script (openenv build) handles context detection and sets appropriate build args.
 
-ARG BASE_IMAGE=ghcr.io/meta-pytorch/openenv-base:latest
-FROM ${BASE_IMAGE} AS builder
+# Use OpenEnv base image
+FROM ghcr.io/meta-pytorch/openenv-base:latest AS builder
 
 WORKDIR /app
 
-# Ensure git is available (required for installing dependencies from VCS)
+# Install system dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Build argument to control whether we're building standalone or in-repo
-ARG BUILD_MODE=in-repo
-ARG ENV_NAME=my_env
-
-# Copy environment code (always at root of build context)
+# Copy entire environment
 COPY . /app/env
 
-# For in-repo builds, openenv is already vendored in the build context
-# For standalone builds, openenv will be installed via pyproject.toml
 WORKDIR /app/env
 
-# Ensure uv is available (for local builds where base image lacks it)
+# Install uv if not present
 RUN if ! command -v uv >/dev/null 2>&1; then \
-        curl -LsSf https://astral.sh/uv/install.sh | sh && \
-        mv /root/.local/bin/uv /usr/local/bin/uv && \
-        mv /root/.local/bin/uvx /usr/local/bin/uvx; \
-    fi
-    
-# Install dependencies using uv sync
-# If uv.lock exists, use it; otherwise resolve on the fly
-RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ -f uv.lock ]; then \
-        uv sync --frozen --no-install-project --no-editable; \
-    else \
-        uv sync --no-install-project --no-editable; \
+        curl -LsSf https://astral.sh/uv/install.sh | sh; \
     fi
 
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Sync dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     if [ -f uv.lock ]; then \
-        uv sync --frozen --no-editable; \
+        uv sync --frozen --no-dev; \
     else \
-        uv sync --no-editable; \
+        uv sync --no-dev; \
     fi
 
-# Final runtime stage
-FROM ${BASE_IMAGE}
+# Install openenv-core
+RUN --mount=type=cache,target=/root/.cache/uv \
+    if [ -f uv.lock ]; then \
+        uv pip install openenv-core --python .venv/bin/python; \
+    else \
+        uv pip install openenv-core --python .venv/bin/python; \
+    fi
+
+# Runtime stage
+FROM ghcr.io/meta-pytorch/openenv-base:latest
 
 WORKDIR /app
 
-# Copy the virtual environment from builder
+# Copy virtual environment and app
 COPY --from=builder /app/env/.venv /app/.venv
-
-# Copy the environment code
 COPY --from=builder /app/env /app/env
 
-# Set PATH to use the virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
-
-# Set PYTHONPATH so imports work correctly
 ENV PYTHONPATH="/app/env:$PYTHONPATH"
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+WORKDIR /app/env
 
-# Run the FastAPI server
-# The module path is constructed to work with the /app/env structure
-CMD ["sh", "-c", "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 8000"]
+# Expose port
+EXPOSE 7860
+
+# Start the server
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
