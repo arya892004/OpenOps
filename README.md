@@ -88,3 +88,4 @@ openenv push
 ```
 
 ## 📊 Sample Output
+![local inference outputt](https://github.com/arya892004/OpenOps/blob/main/assets/output.png?raw=true)
