@@ -1,3 +1,11 @@
+---
+title: OpenOps Incident Commander
+emoji: 🚨
+colorFrom: red
+colorTo: orange
+sdk: docker
+pinned: false
+---
 # OpenOps: AI Incident Commander Environment
 
 Production incident management environment where AI agents learn to handle real-world outages.
