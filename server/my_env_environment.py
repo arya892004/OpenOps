@@ -3,23 +3,13 @@ from openenv.core.environment import Environment
 
 
 class MyEnvEnvironment(Environment):
-    """
-    Minimal OpenEnv compliant environment.
-    This satisfies the evaluator lifecycle:
-    - reset()
-    - reset_async()
-    - step()
-    - close()
-    """
 
     def __init__(self):
         self.state: Dict[str, Any] = {}
 
-    # -------------------------------------------------
-    # REQUIRED: Sync reset
-    # -------------------------------------------------
+    # REQUIRED by OpenEnv
     def reset(self) -> Dict[str, Any]:
-        print("Environment reset called")
+        print("RESET CALLED")
         self.state = {
             "status": "ready",
             "incident": None,
@@ -27,24 +17,20 @@ class MyEnvEnvironment(Environment):
         }
         return self.state
 
-    # -------------------------------------------------
-    # REQUIRED: Async reset (HF evaluator calls this!)
-    # -------------------------------------------------
+    # REQUIRED by OpenEnv evaluator
     async def reset_async(self) -> Dict[str, Any]:
+        print("ASYNC RESET CALLED")
         return self.reset()
 
-    # -------------------------------------------------
-    # REQUIRED: Step function
-    # -------------------------------------------------
+    # REQUIRED by OpenEnv
     def step(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        print("Step called with:", action)
+        print("STEP CALLED:", action)
 
-        # Fake incident response simulation
         incident = action.get("incident", "unknown")
 
         result = {
-            "message": f"Incident '{incident}' handled successfully",
-            "status": "resolved"
+            "status": "resolved",
+            "message": f"Incident '{incident}' handled"
         }
 
         self.state["incident"] = incident
@@ -52,8 +38,6 @@ class MyEnvEnvironment(Environment):
 
         return result
 
-    # -------------------------------------------------
-    # REQUIRED: Close lifecycle (HF evaluator calls this!)
-    # -------------------------------------------------
+    # REQUIRED by OpenEnv evaluator
     def close(self):
-        print("Environment closed")
+        print("ENV CLOSED")
