@@ -28,15 +28,17 @@ Usage:
     python -m server.app
 """
 
-from inference import run_task
-from server.my_env_environment import MyEnvEnvironment
-from fastapi.responses import HTMLResponse
+# OpenOps Incident Commander - FastAPI Server + Demo UI
 
+from fastapi.responses import HTMLResponse
+from inference import run_task
+
+# OpenEnv imports (do not change)
 try:
     from openenv.core.env_server.http_server import create_app
-except Exception as e:  # pragma: no cover
+except Exception as e:
     raise ImportError(
-        "openenv is required for the web interface. Install dependencies with '\n    uv sync\n'"
+        "openenv is required. Install dependencies with: uv sync"
     ) from e
 
 try:
@@ -47,114 +49,97 @@ except ModuleNotFoundError:
     from server.my_env_environment import MyEnvEnvironment
 
 
-# app creation
+# =========================================================
+# CREATE OPENENV API (Hackathon requirement)
+# =========================================================
 app = create_app(
     MyEnvEnvironment,
     IncidentAction,
     IncidentObservation,
     env_name="my_env",
-    max_concurrent_envs=1,  
+    max_concurrent_envs=1,
 )
 
-from fastapi.responses import HTMLResponse
+# =========================================================
+# AGENT EXECUTION ENDPOINT (Hackathon demo endpoint)
+# =========================================================
+@app.get("/run-task/{task_id}")
+def run_task_api(task_id: int):
+    """
+    Runs the autonomous incident agent.
+    Used by the demo UI.
+    """
+    return run_task(task_id)
 
 
-# HuggingFace Spaces Homepage UI
+# =========================================================
+# HOMEPAGE DEMO UI (What judges will see)
+# =========================================================
 @app.get("/", response_class=HTMLResponse)
 def home():
     return """
     <html>
-        <head>
-            <title>OpenOps Incident Commander</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background:#0b1220;
-                    color:white;
-                    text-align:center;
-                    padding-top:80px;
-                }
-                .box{
-                    background:#111a2e;
-                    width:600px;
-                    margin:auto;
-                    padding:30px;
-                    border-radius:15px;
-                    box-shadow:0 0 20px rgba(0,0,0,0.4);
-                }
-                button{
-                    padding:12px 20px;
-                    margin:10px;
-                    font-size:16px;
-                    border:none;
-                    border-radius:8px;
-                    background:#4CAF50;
-                    color:white;
-                    cursor:pointer;
-                }
-                button:hover{background:#45a049;}
-                pre{ text-align:left; background:#000; padding:15px; border-radius:10px;}
-            </style>
-        </head>
-        <body>
-            <div class="box">
-                <h1>🚨 OpenOps Incident Commander</h1>
-                <p>Hackathon Demo UI</p>
+    <head>
+        <title>OpenOps Incident Commander</title>
+        <style>
+            body {
+                font-family: Arial;
+                background:#0b1220;
+                color:white;
+                text-align:center;
+                padding-top:60px;
+            }
+            .box{
+                background:#111a2e;
+                width:650px;
+                margin:auto;
+                padding:35px;
+                border-radius:15px;
+                box-shadow:0 0 25px rgba(0,0,0,0.5);
+            }
+            button{
+                padding:14px 22px;
+                margin:10px;
+                font-size:16px;
+                border:none;
+                border-radius:8px;
+                background:#4CAF50;
+                color:white;
+                cursor:pointer;
+            }
+            button:hover{background:#45a049;}
+            pre{
+                text-align:left;
+                background:#000;
+                padding:15px;
+                border-radius:10px;
+                max-height:300px;
+                overflow:auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <h1>🚨 OpenOps Incident Commander</h1>
+            <p>Autonomous SRE Agent – Hackathon Demo</p>
 
-                <button onclick="runTask(1)">Run Task 1</button>
-                <button onclick="runTask(2)">Run Task 2</button>
-                <button onclick="runTask(3)">Run Task 3</button>
+            <button onclick="runTask(1)">Run Task 1 (API Crash)</button>
+            <button onclick="runTask(2)">Run Task 2 (DB Failure)</button>
+            <button onclick="runTask(3)">Run Task 3 (Memory Leak)</button>
 
-                <pre id="output">Click a task to run...</pre>
-            </div>
+            <h3>Agent Output</h3>
+            <pre id="output">Click a task to run...</pre>
+        </div>
 
-            <script>
-                async function runTask(task){
-                    document.getElementById("output").textContent="Running...";
-                    const res = await fetch("/run-task/"+task);
-                    const data = await res.json();
-                    document.getElementById("output").textContent =
-                        JSON.stringify(data,null,2);
-                }
-            </script>
-        </body>
+        <script>
+            async function runTask(task){
+                document.getElementById("output").textContent="Running agent...";
+                const res = await fetch("/run-task/" + task);
+                const data = await res.json();
+                document.getElementById("output").textContent =
+                    JSON.stringify(data, null, 2);
+            }
+        </script>
+    </body>
     </html>
     """
-
-def main(host: str = "0.0.0.0", port: int = 8000):
-    """
-    Entry point for direct execution via uv run or python -m.
-
-    This function enables running the server without Docker:
-        uv run --project . server
-        uv run --project . server --port 8001
-        python -m my_env.server.app
-
-    Args:
-        host: Host address to bind to (default: "0.0.0.0")
-        port: Port number to listen on (default: 8000)
-
-    For production deployments, consider using uvicorn directly with
-    multiple workers:
-        uvicorn my_env.server.app:app --workers 4
-    """
-    from inference import run_task
-
-    @app.get("/run-task/{task_id}")
-    def run_task_api(task_id: int):
-        return run_task(task_id)
-    
-
-    
-    import uvicorn
-
-    uvicorn.run(app, host=host, port=port)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    main(port=args.port)
