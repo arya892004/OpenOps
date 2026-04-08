@@ -22,7 +22,7 @@ API_KEY = os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY") or os.getenv("GRO
 
 
 # =========================================================
-# REQUIRED LOGGING (CRITICAL - DO NOT REMOVE!)
+# REQUIRED LOGGING 
 # =========================================================
 def log_start(task_id: int):
     """Hackathon-required start log."""
@@ -124,7 +124,7 @@ PLAYBOOKS = {
 
 
 # =========================================================
-# RUN SINGLE TASK (WITH REQUIRED LOGGING)
+# RUN SINGLE TASK 
 # =========================================================
 def run_task(task_id: int, max_steps: int = 30) -> dict:
     """

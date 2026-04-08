@@ -28,8 +28,9 @@ Usage:
     python -m server.app
 """
 
+from inference import run_task
 from server.my_env_environment import MyEnvEnvironment
-
+from fastapi.responses import HTMLResponse
 
 try:
     from openenv.core.env_server.http_server import create_app
@@ -46,29 +47,79 @@ except ModuleNotFoundError:
     from server.my_env_environment import MyEnvEnvironment
 
 
-# Create the app with web interface and README integration
+# app creation
 app = create_app(
     MyEnvEnvironment,
     IncidentAction,
     IncidentObservation,
     env_name="my_env",
-    max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
+    max_concurrent_envs=1,  
 )
 
-@app.get("/")
+from fastapi.responses import HTMLResponse
+
+
+# HuggingFace Spaces Homepage UI
+@app.get("/", response_class=HTMLResponse)
 def home():
-    return {
-        "project": "OpenOps Incident Commander",
-        "status": "running",
-        "docs": "/docs",
-        "endpoints": [
-            "/reset",
-            "/step",
-            "/state",
-            "/schema",
-            "/ws"
-        ]
-    }
+    return """
+    <html>
+        <head>
+            <title>OpenOps Incident Commander</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background:#0b1220;
+                    color:white;
+                    text-align:center;
+                    padding-top:80px;
+                }
+                .box{
+                    background:#111a2e;
+                    width:600px;
+                    margin:auto;
+                    padding:30px;
+                    border-radius:15px;
+                    box-shadow:0 0 20px rgba(0,0,0,0.4);
+                }
+                button{
+                    padding:12px 20px;
+                    margin:10px;
+                    font-size:16px;
+                    border:none;
+                    border-radius:8px;
+                    background:#4CAF50;
+                    color:white;
+                    cursor:pointer;
+                }
+                button:hover{background:#45a049;}
+                pre{ text-align:left; background:#000; padding:15px; border-radius:10px;}
+            </style>
+        </head>
+        <body>
+            <div class="box">
+                <h1>🚨 OpenOps Incident Commander</h1>
+                <p>Hackathon Demo UI</p>
+
+                <button onclick="runTask(1)">Run Task 1</button>
+                <button onclick="runTask(2)">Run Task 2</button>
+                <button onclick="runTask(3)">Run Task 3</button>
+
+                <pre id="output">Click a task to run...</pre>
+            </div>
+
+            <script>
+                async function runTask(task){
+                    document.getElementById("output").textContent="Running...";
+                    const res = await fetch("/run-task/"+task);
+                    const data = await res.json();
+                    document.getElementById("output").textContent =
+                        JSON.stringify(data,null,2);
+                }
+            </script>
+        </body>
+    </html>
+    """
 
 def main(host: str = "0.0.0.0", port: int = 8000):
     """
@@ -87,6 +138,14 @@ def main(host: str = "0.0.0.0", port: int = 8000):
     multiple workers:
         uvicorn my_env.server.app:app --workers 4
     """
+    from inference import run_task
+
+    @app.get("/run-task/{task_id}")
+    def run_task_api(task_id: int):
+        return run_task(task_id)
+    
+
+    
     import uvicorn
 
     uvicorn.run(app, host=host, port=port)
