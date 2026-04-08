@@ -1,63 +1,114 @@
 from openenv.core.environment import Environment
+from models import IncidentAction, IncidentObservation, IncidentState
+from typing import Dict, List, Tuple
 import asyncio
 
 class MyEnvEnvironment(Environment):
+    """
+    Minimal but VALID OpenOps Incident Environment
+    """
 
     def __init__(self):
         super().__init__()
-        self.state = {}
+        self._reset_internal()
 
     # ------------------------------------------------
-    # REQUIRED 1️⃣ async reset (OpenEnv checks this FIRST)
+    # REQUIRED lifecycle methods for OpenEnv
     # ------------------------------------------------
-    async def reset_async(self):
-        print("ASYNC RESET CALLED")
-        await asyncio.sleep(0)  # required async noop
-        return self.reset()
+    async def reset_async(self, **kwargs):
+        return self.reset(**kwargs)
+
+    def close(self):
+        pass
 
     # ------------------------------------------------
-    # REQUIRED 2️⃣ sync reset
+    # ENV RESET
     # ------------------------------------------------
-    def reset(self):
-        print("RESET CALLED")
-        self.state = {
-            "incident": "Database outage",
-            "status": "investigating",
-            "steps_taken": []
-        }
+    def _reset_internal(self):
+        self.time = 0
+        self.resolved = False
+        self.steps = []
 
-        return {
-            "observation": self.state,
-            "info": {}
-        }
+    def reset(self, **kwargs) -> IncidentObservation:
+        self._reset_internal()
+
+        return IncidentObservation(
+            done=False,
+            reward=0,
+            active_alerts=["CRITICAL: Database outage"],
+            service_status={
+                "api": "degraded",
+                "database": "down",
+                "auth": "healthy",
+                "frontend": "degraded",
+            },
+            recent_logs={
+                "database": ["FATAL: connection refused"]
+            },
+            metrics_summary={
+                "total_requests": 10000,
+                "avg_error_rate": 0.35,
+                "avg_latency_ms": 900,
+            },
+            customer_complaints=120,
+            time_elapsed=0,
+            revenue_loss=0.0,
+            teams_notified=False,
+            status_page_updated=False,
+            user_communication_sent=False,
+        )
 
     # ------------------------------------------------
-    # REQUIRED 3️⃣ step
+    # STEP
     # ------------------------------------------------
-    def step(self, action):
-        print("STEP CALLED:", action)
+    def step(self, action: IncidentAction) -> IncidentObservation:
+        self.time += 1
+        self.steps.append(action.action_id)
 
-        action_text = action.get("action", "").lower()
-
-        if "restart" in action_text:
-            self.state["status"] = "resolved"
-            reward = 1
+        # Simple success condition
+        if action.action_id == 10:  # restart_database
+            self.resolved = True
+            reward = 1.0
             done = True
         else:
-            self.state["steps_taken"].append(action_text)
-            reward = 0
+            reward = -0.01
             done = False
 
-        return {
-            "observation": self.state,
-            "reward": reward,
-            "done": done,
-            "info": {}
-        }
+        return IncidentObservation(
+            done=done,
+            reward=reward,
+            active_alerts=["CRITICAL: Database outage"] if not done else [],
+            service_status={
+                "api": "healthy" if done else "degraded",
+                "database": "healthy" if done else "down",
+                "auth": "healthy",
+                "frontend": "healthy" if done else "degraded",
+            },
+            recent_logs={"database": ["Restart successful"] if done else ["Connection refused"]},
+            metrics_summary={
+                "total_requests": 10000 - (self.time * 100),
+                "avg_error_rate": 0.01 if done else 0.35,
+                "avg_latency_ms": 120 if done else 900,
+            },
+            customer_complaints=max(0, 120 - self.time * 5),
+            time_elapsed=self.time,
+            revenue_loss=self.time * 100,
+            teams_notified=False,
+            status_page_updated=False,
+            user_communication_sent=False,
+        )
 
     # ------------------------------------------------
-    # REQUIRED 4️⃣ close (called BEFORE every reset)
+    # STATE (required by evaluator)
     # ------------------------------------------------
-    def close(self):
-        print("ENV CLOSED")
-        self.state = {}
+    @property
+    def state(self) -> IncidentState:
+        return IncidentState(
+            task_id=1,
+            incident_active=not self.resolved,
+            incident_resolved=self.resolved,
+            root_cause="database outage",
+            services={"database": "healthy" if self.resolved else "down"},
+            steps_taken=self.time,
+            total_reward=0.0,
+        )
