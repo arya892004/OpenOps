@@ -28,20 +28,16 @@ Usage:
     python -m server.app
 """
 
-from server.my_env_environment import MyEnvEnvironment
-import requests
+# Copyright (c) Meta Platforms, Inc.
+
 from fastapi import FastAPI
 import gradio as gr
 
-# OpenEnv server creator
 try:
     from openenv.core.env_server.http_server import create_app
 except Exception as e:
-    raise ImportError(
-        "openenv is required. Install with:\n\n    uv sync\n"
-    ) from e
+    raise ImportError("openenv is required. Run: uv sync") from e
 
-# Local imports (supports both docker + local run)
 try:
     from server.models import IncidentAction, IncidentObservation
     from server.my_env_environment import MyEnvEnvironment
@@ -50,11 +46,11 @@ except ModuleNotFoundError:
     from my_env_environment import MyEnvEnvironment
 
 
-# ---------------------------------------------------
-# Create OpenEnv FastAPI App
-# ---------------------------------------------------
+# =========================================================
+# 1️⃣ Create OpenEnv API (THIS MUST BE ROOT)
+# =========================================================
 
-app: FastAPI = create_app(
+app = create_app(
     MyEnvEnvironment,
     IncidentAction,
     IncidentObservation,
@@ -62,107 +58,48 @@ app: FastAPI = create_app(
     max_concurrent_envs=1,
 )
 
-
-# ---------------------------------------------------
-# Root Route (kept simple for submission health check)
-# ---------------------------------------------------
+# =========================================================
+# 2️⃣ Root info page (HF Space landing)
+# =========================================================
 
 @app.get("/")
-def home():
+def root():
     return {
-        "project": "OpenOps Incident Commander",
-        "status": "running",
-        "openenv_endpoints": [
-            "/reset",
-            "/step",
-            "/state",
-            "/schema",
-            "/ws",
-        ],
-        "gradio_ui": "/ui"
+        "message": "OpenOps Incident Commander API",
+        "ui": "/ui",
+        "docs": "/docs",
+        "health": "ok"
     }
 
+# =========================================================
+# 3️⃣ Gradio UI
+# =========================================================
 
-# ===================================================
-#                GRADIO UI SECTION
-# ===================================================
-# 
+def run_demo(action_id, task_id):
+    return f"Action {action_id} submitted for task {task_id}"
 
+demo = gr.Interface(
+    fn=run_demo,
+    inputs=[
+        gr.Slider(0, 20, step=1, label="Action ID"),
+        gr.Slider(1, 3, step=1, label="Task ID"),
+    ],
+    outputs="text",
+    title="🚨 OpenOps Incident Commander",
+    description="Test the environment manually",
+)
 
-def call_reset():
-    try:
-        r = requests.post("http://localhost:8000/reset", timeout=10)
-        return r.json()
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def call_step(action_text):
-    try:
-        r = requests.post(
-            "http://localhost:8000/step",
-            json={"action": action_text},
-            timeout=15,
-        )
-        return r.json()
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def gradio_reset():
-    return call_reset()
-
-
-def gradio_step(action):
-    return call_step(action)
-
-
-with gr.Blocks(title="OpenOps Incident Commander") as demo:
-    gr.Markdown("# 🚨 OpenOps Incident Commander")
-    gr.Markdown("Interact with your OpenEnv agent visually")
-
-    with gr.Row():
-        reset_btn = gr.Button("🔄 Reset Environment")
-
-    reset_output = gr.JSON(label="Reset Response")
-
-    reset_btn.click(fn=gradio_reset, outputs=reset_output)
-
-    gr.Markdown("## ▶️ Send Action")
-
-    action_input = gr.Textbox(
-        label="Action",
-        placeholder="Type an action for the agent...",
-    )
-
-    step_btn = gr.Button("Run Step")
-    step_output = gr.JSON(label="Step Response")
-
-    step_btn.click(
-        fn=gradio_step,
-        inputs=action_input,
-        outputs=step_output,
-    )
-
-
-# 🔥 Mount Gradio safely at /ui
+# 🔥 IMPORTANT — mount on /ui NOT /
 app = gr.mount_gradio_app(app, demo, path="/ui")
 
+# =========================================================
+# Local run
+# =========================================================
 
-# ---------------------------------------------------
-# Run via python -m server.app
-# ---------------------------------------------------
-
-def main(host: str = "0.0.0.0", port: int = 8000):
+def main():
     import uvicorn
-    uvicorn.run(app, host=host, port=port)
-
+    uvicorn.run(app, host="0.0.0.0", port=7860)
 
 if __name__ == "__main__":
-    import argparse
+    main()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-
-    main(port=args.port)
