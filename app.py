@@ -1,57 +1,31 @@
-import sys
-import os
+# Copyright (c) Meta Platforms, Inc.
+"""
+OpenOps Incident Commander — FastAPI Server Entry Point
 
-# 🔥 CRITICAL FIX — make /env importable on HuggingFace Spaces
-sys.path.append(os.path.abspath("env"))
+OpenEnv's create_app() auto-generates these endpoints:
+  GET  /health     → liveness check
+  POST /reset      → start new episode
+  POST /step       → take action
+  GET  /state      → current internal state
+"""
 
-from fastapi import FastAPI
-import gradio as gr
+# Dual-import pattern (REQUIRED by OpenEnv)
+try:
+    from ..models import IncidentAction, IncidentObservation
+except ImportError:
+    from models import IncidentAction, IncidentObservation
 
-# now this import will ALWAYS work
-from server.my_env_environment import MyEnvEnvironment
-from models import IncidentAction
+try:
+    from .my_env_environment import MyEnvEnvironment
+except ImportError:
+    from server.my_env_environment import MyEnvEnvironment
 
-app = FastAPI()
-env = MyEnvEnvironment()
+from openenv.core.env_server import create_app
 
-# ---------------------------------------------------
-# Health check (Spaces looks for this)
-# ---------------------------------------------------
-@app.get("/")
-def root():
-    return {"status": "OpenOps Incident Commander running"}
-
-# ---------------------------------------------------
-# OpenEnv required endpoints
-# ---------------------------------------------------
-@app.post("/reset")
-def reset():
-    obs = env.reset()
-    return obs.model_dump()
-
-@app.post("/step")
-def step(action: IncidentAction):
-    obs = env.step(action)
-    return obs.model_dump()
-
-# ---------------------------------------------------
-# Optional Gradio UI (nice for demo)
-# ---------------------------------------------------
-def demo_reset():
-    obs = env.reset()
-    return str(obs)
-
-def demo_step(action_id):
-    action = IncidentAction(action_id=int(action_id))
-    obs = env.step(action)
-    return str(obs)
-
-demo = gr.Interface(
-    fn=demo_step,
-    inputs=gr.Number(label="Action ID (try 10 to resolve)"),
-    outputs=gr.Textbox(label="Environment Response"),
-    title="🚨 OpenOps Incident Commander",
-    description="Enter action 10 to resolve the incident.",
+# ✅ Pass the CLASS (not an instance) — create_app handles instantiation
+app = create_app(
+    MyEnvEnvironment,       # environment class
+    IncidentAction,         # action type
+    IncidentObservation,    # observation type
+    env_name="openops-incident-commander",
 )
-
-app = gr.mount_gradio_app(app, demo, path="/ui")
