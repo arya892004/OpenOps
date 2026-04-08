@@ -1,43 +1,63 @@
-from typing import Dict, Any
 from openenv.core.environment import Environment
-
+import asyncio
 
 class MyEnvEnvironment(Environment):
 
     def __init__(self):
-        self.state: Dict[str, Any] = {}
+        super().__init__()
+        self.state = {}
 
-    # REQUIRED by OpenEnv
-    def reset(self) -> Dict[str, Any]:
-        print("RESET CALLED")
-        self.state = {
-            "status": "ready",
-            "incident": None,
-            "logs": []
-        }
-        return self.state
-
-    # REQUIRED by OpenEnv evaluator
-    async def reset_async(self) -> Dict[str, Any]:
+    # ------------------------------------------------
+    # REQUIRED 1️⃣ async reset (OpenEnv checks this FIRST)
+    # ------------------------------------------------
+    async def reset_async(self):
         print("ASYNC RESET CALLED")
+        await asyncio.sleep(0)  # required async noop
         return self.reset()
 
-    # REQUIRED by OpenEnv
-    def step(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        print("STEP CALLED:", action)
-
-        incident = action.get("incident", "unknown")
-
-        result = {
-            "status": "resolved",
-            "message": f"Incident '{incident}' handled"
+    # ------------------------------------------------
+    # REQUIRED 2️⃣ sync reset
+    # ------------------------------------------------
+    def reset(self):
+        print("RESET CALLED")
+        self.state = {
+            "incident": "Database outage",
+            "status": "investigating",
+            "steps_taken": []
         }
 
-        self.state["incident"] = incident
-        self.state["logs"].append(result)
+        return {
+            "observation": self.state,
+            "info": {}
+        }
 
-        return result
+    # ------------------------------------------------
+    # REQUIRED 3️⃣ step
+    # ------------------------------------------------
+    def step(self, action):
+        print("STEP CALLED:", action)
 
-    # REQUIRED by OpenEnv evaluator
+        action_text = action.get("action", "").lower()
+
+        if "restart" in action_text:
+            self.state["status"] = "resolved"
+            reward = 1
+            done = True
+        else:
+            self.state["steps_taken"].append(action_text)
+            reward = 0
+            done = False
+
+        return {
+            "observation": self.state,
+            "reward": reward,
+            "done": done,
+            "info": {}
+        }
+
+    # ------------------------------------------------
+    # REQUIRED 4️⃣ close (called BEFORE every reset)
+    # ------------------------------------------------
     def close(self):
         print("ENV CLOSED")
+        self.state = {}
