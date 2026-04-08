@@ -1,4 +1,4 @@
-from openenv.core.environment import Environment
+from openenv.environment import Environment
 from models import IncidentAction, IncidentObservation, IncidentState
 import asyncio
 
