@@ -1,43 +1,48 @@
 from fastapi import FastAPI
 import gradio as gr
 
-# 🔥 IMPORTANT: OpenEnv server
+# OpenEnv server
 from openenv.core.env_server.http_server import create_http_env_app
 
-# 🔥 Your environment
+# Your environment
 from server.my_env_environment import MyEnvEnvironment
 
+# ---------------------------------------------------
+# 1️⃣ Create FastAPI app
+# ---------------------------------------------------
+app = FastAPI(title="OpenOps Incident Commander")
 
 # ---------------------------------------------------
-# 1) Create environment instance
+# 2️⃣ Register OpenEnv HTTP server
+# This exposes the REQUIRED endpoints:
+# /reset
+# /step
+# /state
 # ---------------------------------------------------
 env = MyEnvEnvironment()
-
-# ---------------------------------------------------
-# 2) Create OpenEnv HTTP app (this exposes /reset /step)
-# ---------------------------------------------------
 openenv_app = create_http_env_app(env)
 
-# ---------------------------------------------------
-# 3) Create main FastAPI app
-# ---------------------------------------------------
-app = FastAPI()
+app.mount("/env", openenv_app)
 
-# Mount OpenEnv API at root
-app.mount("/", openenv_app)
+# Root redirect (validator sometimes hits "/")
+@app.get("/")
+def root():
+    return {"message": "OpenOps Environment Running 🚀"}
 
 
 # ---------------------------------------------------
-# 4) Gradio UI (mounted at /ui)
+# 3️⃣ Simple Gradio UI (for humans, not validator)
+# Will run at /ui
 # ---------------------------------------------------
-def demo_fn(text):
-    return f"OpenOps UI working ✅ : {text}"
+def run_demo():
+    return "OpenOps Incident Commander is running ✅"
 
 demo = gr.Interface(
-    fn=demo_fn,
-    inputs="text",
+    fn=run_demo,
+    inputs=[],
     outputs="text",
-    title="OpenOps Incident Commander"
+    title="OpenOps Incident Commander",
+    description="Environment is live and ready for validation.",
 )
 
 app = gr.mount_gradio_app(app, demo, path="/ui")
