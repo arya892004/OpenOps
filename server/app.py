@@ -9,7 +9,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
@@ -26,37 +26,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Global environment instance (stateful for demo purposes)
+# Global environment instance
 env_instance: Optional[MyEnvEnvironment] = None
 
 
-# Request/Response Models
-class ResetRequest(BaseModel):
-    task_id: int = 1
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "task_id": 1
-            }
-        }
-
-
+# Request Models
 class StepRequest(BaseModel):
     action_id: int
-    task_id: int = 1
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "action_id": 0,
-                "task_id": 1
-            }
-        }
-
-
-class StateResponse(BaseModel):
-    state: Dict[str, Any]
+    task_id: Optional[int] = 1
 
 
 # Health check endpoint
@@ -87,12 +64,13 @@ async def health():
 
 
 @app.post("/reset")
-async def reset(request: ResetRequest) -> Dict[str, Any]:
+async def reset(task_id: int = Query(default=1, ge=1, le=3)) -> Dict[str, Any]:
     """
     Reset the environment for a specific task.
+    OpenEnv standard endpoint.
     
     Args:
-        request: ResetRequest with task_id (1=easy, 2=medium, 3=hard)
+        task_id: Task difficulty (1=easy, 2=medium, 3=hard)
     
     Returns:
         Initial observation after reset
@@ -100,23 +78,12 @@ async def reset(request: ResetRequest) -> Dict[str, Any]:
     global env_instance
     
     try:
-        # Validate task_id
-        if request.task_id not in [1, 2, 3]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid task_id: {request.task_id}. Must be 1, 2, or 3."
-            )
-        
         # Create new environment instance
         env_instance = MyEnvEnvironment()
-        obs = env_instance.reset(task_id=request.task_id)
+        obs = env_instance.reset(task_id=task_id)
         
-        # Return observation as dict
-        return {
-            "observation": obs.model_dump(),
-            "task_id": request.task_id,
-            "message": "Environment reset successfully"
-        }
+        # Return observation in OpenEnv format
+        return obs.model_dump()
         
     except Exception as e:
         raise HTTPException(
@@ -156,26 +123,14 @@ async def step(request: StepRequest) -> Dict[str, Any]:
         # Create action
         action = IncidentAction(
             action_id=request.action_id,
-            task_id=request.task_id
+            task_id=request.task_id if request.task_id else env_instance.task_id
         )
         
         # Execute step
         obs = env_instance.step(action)
         
-        # Get action name
-        action_name = env_instance.ACTION_NAMES.get(request.action_id, "unknown")
-        
-        return {
-            "observation": obs.model_dump(),
-            "action_taken": {
-                "action_id": request.action_id,
-                "action_name": action_name
-            },
-            "reward": obs.reward,
-            "done": obs.done,
-            "total_reward": env_instance.total_reward,
-            "incident_resolved": env_instance.incident_resolved
-        }
+        # Return observation in OpenEnv format
+        return obs.model_dump()
         
     except Exception as e:
         raise HTTPException(
@@ -227,7 +182,6 @@ async def get_actions() -> Dict[str, Any]:
         Dictionary of action IDs and names
     """
     try:
-        # Create temporary instance to get action names
         temp_env = MyEnvEnvironment()
         
         return {
