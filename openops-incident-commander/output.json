@@ -1,6 +1,0 @@
-{
-  "service": "api",
-  "root_cause": "timeout",
-  "severity": "high",
-  "explanation": "Upstream service is slow or not responding in time."
-}
