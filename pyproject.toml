@@ -36,5 +36,4 @@ include-package-data = true
 packages = ["server", "models", "graders"]
 
 [tool.uv]
-package = false
 dev-dependencies = []
