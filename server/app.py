@@ -221,10 +221,15 @@ async def general_exception_handler(request, exc):
     )
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for uv run server."""
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=7860,
         log_level="info"
     )
+
+
+if __name__ == "__main__":
+    main()

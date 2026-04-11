@@ -37,4 +37,3 @@ packages = ["server", "models", "graders"]
 
 [tool.uv]
 dev-dependencies = []
-package = false
