@@ -9,7 +9,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "MY_ENV"
+name = "openenv-openops"
 version = "0.1.0"
 description = "OpenOps Production Incident Management Environment for OpenEnv"
 authors = [{name = "arya89"}]
@@ -31,9 +31,8 @@ dev = [
 [project.scripts]
 server = "server.app:main"
 
-[tool.setuptools]
-include-package-data = true
-packages = ["server", "models", "graders"]
-
 [tool.uv]
-dev-dependencies = []
+package = false
+
+[tool.setuptools]
+py-modules = []
