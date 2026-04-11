@@ -15,17 +15,22 @@ FROM ghcr.io/meta-pytorch/openenv-base:latest
 
 WORKDIR /app/env
 
-# Copy project files
+# Copy all files
 COPY . /app/env
 
-# Install dependencies directly via pip
-RUN pip install --no-cache-dir -r server/requirements.txt
+# Install dependencies using pip (not uv)
+RUN pip install --no-cache-dir \
+    openenv-core>=0.2.2 \
+    fastapi>=0.115.0 \
+    "uvicorn[standard]>=0.32.0" \
+    pydantic>=2.0.0 \
+    openai>=1.0.0
 
-# Set environment variables
+# Set environment
 ENV PYTHONPATH="/app/env:$PYTHONPATH"
 
 # Expose port
 EXPOSE 7860
 
-# Start server
+# Run server
 CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
